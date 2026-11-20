@@ -1,5 +1,5 @@
 [package]
-name = "replace-with-your-wasmer-username/night-pulse-demo"
+name = "adil-zero-one/nightpulse"
 version = "0.1.0"
 description = "Night Pulse React demo with a Flask and PostgreSQL backend"
 entrypoint = "nightpulse"

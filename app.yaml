@@ -1,6 +1,6 @@
 kind: wasmer.io/App.v0
-name: night-pulse-demo
-owner: replace-with-your-wasmer-username
+name: nightpulse
+owner: adil-zero-one
 package: .
 cli_args:
   - -m
