@@ -1,0 +1,33 @@
+[package]
+name = "replace-with-your-wasmer-username/night-pulse-demo"
+version = "0.1.0"
+description = "Night Pulse React demo with a Flask and PostgreSQL backend"
+entrypoint = "nightpulse"
+
+[dependencies]
+"wasmer/python" = "^3.12.6"
+
+[fs]
+"/src" = "./server"
+"/build" = "./build"
+"/cpython/lib/python3.12/site-packages" = "./.venv/lib/python3.12/site-packages"
+
+[[command]]
+name = "nightpulse"
+module = "wasmer/python:python"
+runner = "wasi"
+
+[command.annotations.wasi]
+main-args = [
+  "-m",
+  "flask",
+  "--app",
+  "/src/app",
+  "run",
+  "--host",
+  "0.0.0.0",
+  "--port",
+  "80",
+  "--no-reload",
+]
+env = ["PYTHONEXECUTABLE=/bin/python", "NODE_ENV=production"]

@@ -1,0 +1,14 @@
+services:
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nightpulse
+      POSTGRES_USER: nightpulse
+      POSTGRES_PASSWORD: nightpulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - nightpulse-db:/var/lib/postgresql/data
+
+volumes:
+  nightpulse-db:
