@@ -2,7 +2,17 @@ import hashlib
 import os
 import re
 import secrets
-import sqlite3
+try:
+    import sqlite3
+except ImportError:  # Wasmer's Python has no sqlite3; stand-ins keep isinstance/except checks valid
+    import types
+
+    class _NoSqlite(Exception):
+        pass
+
+    sqlite3 = types.SimpleNamespace(
+        Connection=_NoSqlite, Row=_NoSqlite, IntegrityError=_NoSqlite
+    )
 import ssl
 import threading
 from contextlib import contextmanager

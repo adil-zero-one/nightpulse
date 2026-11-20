@@ -1,6 +1,6 @@
 [package]
 name = "adil-zero-one/nightpulse"
-version = "0.1.2"
+version = "0.1.3"
 description = "Night Pulse React demo with a Flask and PostgreSQL backend"
 entrypoint = "nightpulse"
 private = true
