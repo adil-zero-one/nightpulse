@@ -42,6 +42,24 @@ from flask import Flask, jsonify, request, send_from_directory
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash, generate_password_hash
 
+if ssl is None:
+    # Wasmer's Python has no OpenSSL, so werkzeug's scrypt/pbkdf2 may be missing.
+    # Simple salted SHA-256 is enough for this school demo.
+    import hmac
+
+    def generate_password_hash(password):
+        salt = secrets.token_hex(8)
+        digest = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+        return "sha256$" + salt + "$" + digest
+
+    def check_password_hash(stored, password):
+        try:
+            _, salt, digest = stored.split("$")
+        except ValueError:
+            return False
+        test = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+        return hmac.compare_digest(test, digest)
+
 SESSION_COOKIE = "nightpulse_session"
 SESSION_SECONDS = 14 * 24 * 60 * 60
 BUILD_DIR = Path(__file__).resolve().parents[1] / "build"
@@ -49,7 +67,113 @@ USERNAME_PATTERN = re.compile(r"^[a-z0-9._-]{3,24}$")
 INSTAGRAM_PATTERN = re.compile(r"^[a-z0-9._]{1,30}$", re.IGNORECASE)
 
 
+_MEM_LOCK = threading.Lock()
+_MEM = {"users": {}, "profiles": {}, "sessions": {}, "next_id": 1}
+
+
+def _mem_run(statement, params):
+    s = " ".join(statement.split()).lower()
+    now = datetime.now(timezone.utc)
+    users, profiles, sessions = _MEM["users"], _MEM["profiles"], _MEM["sessions"]
+
+    def by_name(name):
+        return next((u for u in users.values() if u["username"] == name), None)
+
+    def profile_cols(uid):
+        pr = profiles.get(uid) or {}
+        return (pr.get("display_name"), pr.get("instagram_handle"), pr.get("venue_name"))
+
+    with _MEM_LOCK:
+        if s.startswith("create"):
+            return [], None
+        if s == "select 1":
+            return ["x"], (1,)
+        if s.startswith("select id from users"):
+            u = by_name(params[0])
+            return ["id"], ((u["id"],) if u else None)
+        if s.startswith("insert into users"):
+            username, pw_hash = params
+            if by_name(username):
+                if "on conflict" in s:
+                    return ["id"], None
+                raise pg8000.exceptions.DatabaseError({"C": "23505", "M": "duplicate"})
+            uid = _MEM["next_id"]
+            _MEM["next_id"] += 1
+            users[uid] = {"id": uid, "username": username, "password_hash": pw_hash}
+            if "returning id, username" in s:
+                return ["id", "username"], (uid, username)
+            return ["id"], (uid,)
+        if s.startswith("insert into profiles"):
+            uid, name, ig, venue = params
+            if "do nothing" in s and uid in profiles:
+                return [], None
+            profiles[uid] = {"display_name": name, "instagram_handle": ig, "venue_name": venue}
+            if "returning" in s:
+                return ["display_name", "instagram_handle", "venue_name"], (name, ig, venue)
+            return [], None
+        if s.startswith("insert into sessions"):
+            sessions[params[0]] = {"user_id": params[1], "expires_at": params[2]}
+            return [], None
+        if s.startswith("delete from sessions where expires_at"):
+            for key in [k for k, v in sessions.items() if v["expires_at"] <= now]:
+                del sessions[key]
+            return [], None
+        if s.startswith("delete from sessions where token_hash"):
+            sessions.pop(params[0], None)
+            return [], None
+        if s.startswith("select") and "from sessions" in s:
+            names = ["id", "username", "display_name", "instagram_handle", "venue_name"]
+            sess = sessions.get(params[0])
+            if not sess or sess["expires_at"] <= now or sess["user_id"] not in users:
+                return names, None
+            u = users[sess["user_id"]]
+            return names, (u["id"], u["username"]) + profile_cols(u["id"])
+        if s.startswith("select") and "from users left join profiles" in s:
+            names = ["id", "username", "password_hash", "display_name",
+                     "instagram_handle", "venue_name"]
+            u = by_name(params[0])
+            if not u:
+                return names, None
+            return names, (u["id"], u["username"], u["password_hash"]) + profile_cols(u["id"])
+        raise RuntimeError("memory db: unsupported statement: " + s[:80])
+
+
+class MemoryCursor:
+    def __init__(self, connection):
+        self.connection = connection
+        self.description = None
+        self._row = None
+
+    def execute(self, statement, params=()):
+        names, self._row = _mem_run(statement, tuple(params))
+        self.description = [(n,) for n in names]
+        return self
+
+    def fetchone(self):
+        row, self._row = self._row, None
+        return row
+
+    def close(self):
+        pass
+
+
+class MemoryConnection:
+    def cursor(self):
+        return MemoryCursor(self)
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
+
+    def close(self):
+        pass
+
+
 def connect_database():
+    if ssl is None:  # Wasmer: no sqlite3, no ssl -> keep the demo data in memory
+        return MemoryConnection()
     database_url = os.environ.get("DATABASE_URL")
     if database_url:
         parsed = urlparse(database_url)
