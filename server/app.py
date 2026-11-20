@@ -13,7 +13,24 @@ except ImportError:  # Wasmer's Python has no sqlite3; stand-ins keep isinstance
     sqlite3 = types.SimpleNamespace(
         Connection=_NoSqlite, Row=_NoSqlite, IntegrityError=_NoSqlite
     )
-import ssl
+try:
+    import ssl
+except ImportError:  # Wasmer's Python has no ssl module
+    import sys
+    import types
+
+    ssl = None
+    _fake_ssl = types.ModuleType("ssl")
+
+    class SSLObject:  # scramp (pg8000 dependency) imports these two names
+        pass
+
+    class SSLSocket:
+        pass
+
+    _fake_ssl.SSLObject = SSLObject
+    _fake_ssl.SSLSocket = SSLSocket
+    sys.modules["ssl"] = _fake_ssl
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -70,7 +87,7 @@ def connect_database():
         )
 
     if os.environ.get("NODE_ENV") == "production":
-        config["ssl_context"] = ssl._create_unverified_context()
+        config["ssl_context"] = ssl._create_unverified_context() if ssl else False
     return pg8000.dbapi.connect(**config)
 
 
