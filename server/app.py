@@ -327,7 +327,7 @@ def token_hash(token):
 
 
 def create_app(connect=connect_database):
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder=None)
     app.config["DB_CONNECT"] = connect
     app.config["DB_READY"] = False
     app.config["DB_LOCK"] = threading.Lock()

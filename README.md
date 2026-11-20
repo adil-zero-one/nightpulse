@@ -2,6 +2,9 @@
 
 Night Pulse is a React demo with a Flask API and a small SQLite database for local use. Accounts and profiles are saved; venue activity, matches, messages, and payments remain simulated.
 
+## Check it out here:
+[https://nightpulse.wasmer.app]
+
 ## Run it
 
 After installing the project dependencies with `npm install`, start everything with:
