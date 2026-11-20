@@ -15,6 +15,7 @@ cli_args:
   - --no-reload
 env:
   PYTHONEXECUTABLE: /bin/python
+  PYTHONPATH: /cpython/lib/python3.12/site-packages
   NODE_ENV: production
 capabilities:
   database:
@@ -22,13 +23,4 @@ capabilities:
 locality:
   regions:
     - fr-roub1
-health_checks:
-  - http:
-      method: get
-      path: /api/healthz
-      interval: 30s
-      timeout: 10s
-      unhealthy_threshold: 2
-      healthy_threshold: 1
-      expected_status_codes:
-        - 200
+app_id: da_nP7IptBUxXrd

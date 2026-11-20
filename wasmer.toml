@@ -1,8 +1,9 @@
 [package]
 name = "adil-zero-one/nightpulse"
-version = "0.1.0"
+version = "0.1.2"
 description = "Night Pulse React demo with a Flask and PostgreSQL backend"
 entrypoint = "nightpulse"
+private = true
 
 [dependencies]
 "wasmer/python" = "^3.12.6"
@@ -18,16 +19,5 @@ module = "wasmer/python:python"
 runner = "wasi"
 
 [command.annotations.wasi]
-main-args = [
-  "-m",
-  "flask",
-  "--app",
-  "/src/app",
-  "run",
-  "--host",
-  "0.0.0.0",
-  "--port",
-  "80",
-  "--no-reload",
-]
-env = ["PYTHONEXECUTABLE=/bin/python", "NODE_ENV=production"]
+main-args = ["-m", "flask", "--app", "/src/app", "run", "--host", "0.0.0.0", "--port", "80", "--no-reload"]
+env = ["PYTHONEXECUTABLE=/bin/python", "PYTHONPATH=/cpython/lib/python3.12/site-packages", "NODE_ENV=production"]
